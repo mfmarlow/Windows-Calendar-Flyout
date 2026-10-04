@@ -17,6 +17,10 @@ Read-only, talks only to Google, stores its token in `%LOCALAPPDATA%\CalendarFly
    - App name: `Calendar Flyout`, support email: your Gmail
    - Audience: **External**
    - Contact email: your Gmail → Create
+   - Publishing requires a homepage and privacy policy URL on the **Branding** page. This repo's
+     GitHub Pages site works: <https://mfmarlow.github.io/Windows-Calendar-Flyout/> and
+     <https://mfmarlow.github.io/Windows-Calendar-Flyout/PRIVACY>. Add `mfmarlow.github.io` under
+     **Authorized domains**. Don't upload a logo (that triggers verification).
 4. **Audience** page → **Publish app** (status becomes *In production*).
    - Why: in *Testing* mode Google expires refresh tokens after 7 days, forcing a weekly re-login.
    - You do **not** need to submit for verification for personal use. On first sign-in you'll see
@@ -46,6 +50,19 @@ dotnet run
 
 The first restore pulls the newest compatible Windows App SDK and Google packages
 (the `.csproj` uses floating versions). Once it builds, pin the exact versions in the `.csproj`.
+
+### Building from WSL
+
+If the repo lives in WSL, use `./win.sh`. It copies the source to
+`%LOCALAPPDATA%\CalendarFlyout-build` and runs the Windows `dotnet.exe` there, because Windows build
+tools can't handle `\\wsl.localhost` paths:
+
+```bash
+./win.sh build     # Debug build
+./win.sh run       # build and launch (stops a running copy first)
+./win.sh publish   # Release build to %LOCALAPPDATA%\Programs\CalendarFlyout
+./win.sh stop      # kill a running copy
+```
 
 To produce a folder you can keep somewhere permanent (needed for "Start with Windows", which
 records the .exe path):
