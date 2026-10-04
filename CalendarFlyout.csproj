@@ -38,4 +38,13 @@
     </Content>
   </ItemGroup>
 
+  <!-- Unpackaged publish leaves out the app's resource index and compiled XAML, so the
+       published .exe crashes with "XAML parsing failed". Copy them from the build output. -->
+  <Target Name="CopyXamlResourcesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_XamlResources Include="$(OutDir)$(AssemblyName).pri;$(OutDir)*.xbf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_XamlResources)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
