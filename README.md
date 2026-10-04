@@ -92,6 +92,7 @@ Then right-click the tray icon → **Start with Windows**. At login it starts si
 Events refresh every 5 minutes (and when you open the flyout, if the data is over a minute old).
 It shows every calendar that's checked in Google Calendar's sidebar, coloured by calendar, and hides
 events you've declined.
+Days with events get a small marker on the month grid, one per calendar (in that calendar's colour).
 
 ## Project layout
 
@@ -115,6 +116,5 @@ events you've declined.
 ## Ideas for later
 
 - Show the day-of-month number on the tray icon itself.
-- Event density dots on the month grid (`CalendarView.CalendarViewDayItemChanging`).
 - Toast reminders N minutes before meetings (`Microsoft.Windows.AppNotifications`).
 - Create quick events (switch the scope to `CalendarService.Scope.CalendarEvents`).

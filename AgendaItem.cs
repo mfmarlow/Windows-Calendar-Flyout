@@ -36,16 +36,7 @@ public sealed class AgendaItem
     public static AgendaItem FromEvent(CalendarEventInfo info, DateTime day)
     {
         var e = info.Event;
-        bool allDay = e.Start?.DateTimeDateTimeOffset is null;
-        DateTimeOffset? start = e.Start?.DateTimeDateTimeOffset?.ToLocalTime();
-        DateTimeOffset? end = e.End?.DateTimeDateTimeOffset?.ToLocalTime();
-
-        if (allDay)
-        {
-            // All-day events carry plain dates; the end date is exclusive.
-            if (DateTime.TryParse(e.Start?.Date, CultureInfo.InvariantCulture, out var s)) start = new DateTimeOffset(s);
-            if (DateTime.TryParse(e.End?.Date, CultureInfo.InvariantCulture, out var en)) end = new DateTimeOffset(en);
-        }
+        var (allDay, start, end) = GetTimes(e);
 
         string meet = e.HangoutLink
             ?? e.ConferenceData?.EntryPoints?.FirstOrDefault(p => p.EntryPointType == "video")?.Uri
@@ -62,6 +53,22 @@ public sealed class AgendaItem
             MeetLink = meet.Length > 0 ? meet : null,
             HtmlLink = e.HtmlLink,
         };
+    }
+
+    /// <summary>Local start/end of an event. For all-day events the end date is exclusive.</summary>
+    internal static (bool AllDay, DateTimeOffset? Start, DateTimeOffset? End) GetTimes(Google.Apis.Calendar.v3.Data.Event e)
+    {
+        bool allDay = e.Start?.DateTimeDateTimeOffset is null;
+        DateTimeOffset? start = e.Start?.DateTimeDateTimeOffset?.ToLocalTime();
+        DateTimeOffset? end = e.End?.DateTimeDateTimeOffset?.ToLocalTime();
+
+        if (allDay)
+        {
+            // All-day events carry plain dates; the end date is exclusive.
+            if (DateTime.TryParse(e.Start?.Date, CultureInfo.InvariantCulture, out var s)) start = new DateTimeOffset(s);
+            if (DateTime.TryParse(e.End?.Date, CultureInfo.InvariantCulture, out var en)) end = new DateTimeOffset(en);
+        }
+        return (allDay, start, end);
     }
 
     private static string BuildSubtitle(bool allDay, DateTimeOffset? start, DateTimeOffset? end, DateTime day, string? location)
@@ -94,7 +101,7 @@ public sealed class AgendaItem
         return when;
     }
 
-    private static Windows.UI.Color ParseColor(string? hex)
+    internal static Windows.UI.Color ParseColor(string? hex)
     {
         if (hex is { Length: 7 } && hex[0] == '#' &&
             int.TryParse(hex.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int rgb))

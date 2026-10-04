@@ -58,25 +58,36 @@ public sealed class GoogleCalendarService
     }
 
     /// <summary>All events overlapping the given local day, across your visible calendars.</summary>
-    public async Task<List<CalendarEventInfo>> GetDayAsync(DateTime day, CancellationToken ct = default)
+    public Task<List<CalendarEventInfo>> GetDayAsync(DateTime day, CancellationToken ct = default) =>
+        GetRangeAsync(day.Date, day.Date.AddDays(1), ct);
+
+    /// <summary>All events overlapping [from, to) in local time, across your visible calendars.</summary>
+    public async Task<List<CalendarEventInfo>> GetRangeAsync(DateTime from, DateTime to, CancellationToken ct = default)
     {
         if (_service is null) throw new InvalidOperationException("Not signed in.");
 
         var calendars = await GetCalendarsAsync(ct);
-        var start = new DateTimeOffset(day.Date, TimeZoneInfo.Local.GetUtcOffset(day.Date));
-        var endLocal = day.Date.AddDays(1);
-        var end = new DateTimeOffset(endLocal, TimeZoneInfo.Local.GetUtcOffset(endLocal));
+        var start = new DateTimeOffset(from, TimeZoneInfo.Local.GetUtcOffset(from));
+        var end = new DateTimeOffset(to, TimeZoneInfo.Local.GetUtcOffset(to));
 
         var perCalendar = await Task.WhenAll(calendars.Select(async cal =>
         {
-            var request = _service.Events.List(cal.Id);
-            request.TimeMinDateTimeOffset = start;
-            request.TimeMaxDateTimeOffset = end;
-            request.SingleEvents = true; // expand recurring events into instances
-            request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
-            request.MaxResults = 250;
-            var result = await request.ExecuteAsync(ct);
-            return (result.Items ?? []).Select(e => new CalendarEventInfo(e, cal.BackgroundColor));
+            var events = new List<CalendarEventInfo>();
+            string? pageToken = null;
+            do
+            {
+                var request = _service.Events.List(cal.Id);
+                request.TimeMinDateTimeOffset = start;
+                request.TimeMaxDateTimeOffset = end;
+                request.SingleEvents = true; // expand recurring events into instances
+                request.OrderBy = EventsResource.ListRequest.OrderByEnum.StartTime;
+                request.MaxResults = 250;
+                request.PageToken = pageToken;
+                var result = await request.ExecuteAsync(ct);
+                events.AddRange((result.Items ?? []).Select(e => new CalendarEventInfo(e, cal.BackgroundColor)));
+                pageToken = result.NextPageToken;
+            } while (pageToken is not null);
+            return events;
         }));
 
         return perCalendar.SelectMany(x => x)

@@ -35,6 +35,12 @@ public sealed partial class FlyoutWindow : Window
     private bool _shuttingDown;
     private bool _suppressSelectionChanged;
 
+    // Month-grid dots: calendar colours per local day, loaded a month at a time.
+    private readonly Dictionary<DateTime, List<Windows.UI.Color>> _dayColors = [];
+    private readonly HashSet<DateTime> _loadedMonths = [];
+    private readonly HashSet<DateTime> _loadingMonths = [];
+    private int _densityGeneration;
+
     public event Action<string>? TooltipChanged;
 
     public FlyoutWindow()
@@ -74,7 +80,7 @@ public sealed partial class FlyoutWindow : Window
         _timer.Tick += async (_, _) =>
         {
             RollOverIfNewDay();
-            await RefreshAsync();
+            await RefreshAllAsync();
         };
         _timer.Start();
 
@@ -155,6 +161,7 @@ public sealed partial class FlyoutWindow : Window
         {
             await _calendar.SignInAsync(cts.Token);
             SetView(View.Agenda);
+            ReloadDensity();
             await RefreshAsync();
             if (interactive) ShowFlyout(); // bring it back after the browser had focus
         }
@@ -178,11 +185,19 @@ public sealed partial class FlyoutWindow : Window
     {
         await _calendar.SignOutAsync();
         _items.Clear();
+        ClearDensity();
         TooltipChanged?.Invoke("Calendar");
         SetView(_calendar.HasClientSecret ? View.SignIn : View.Setup);
     }
 
     // ------------------------------------------------------------------ data
+
+    /// <summary>Reloads the agenda and the month-grid dots.</summary>
+    public async Task RefreshAllAsync()
+    {
+        ReloadDensity();
+        await RefreshAsync();
+    }
 
     public async Task RefreshAsync()
     {
@@ -264,6 +279,85 @@ public sealed partial class FlyoutWindow : Window
         UpdateDateHeader();
     }
 
+    // ------------------------------------------------------------------ month-grid dots
+
+    private void ApplyDensity(CalendarViewDayItem item)
+    {
+        var day = item.Date.Date;
+        item.SetDensityColors(_dayColors.TryGetValue(day, out var colors) ? colors : null);
+        if (_calendar.IsSignedIn) _ = LoadMonthAsync(new DateTime(day.Year, day.Month, 1));
+    }
+
+    private async Task LoadMonthAsync(DateTime month)
+    {
+        if (_loadedMonths.Contains(month) || !_loadingMonths.Add(month)) return;
+        int generation = _densityGeneration;
+        var next = month.AddMonths(1);
+        try
+        {
+            var events = await _calendar.GetRangeAsync(month, next);
+            if (generation != _densityGeneration) return; // signed out or reloaded meanwhile
+
+            for (var d = month; d < next; d = d.AddDays(1)) _dayColors.Remove(d);
+            foreach (var info in events)
+            {
+                var (_, start, end) = AgendaItem.GetTimes(info.Event);
+                if (start is null) continue;
+                var first = start.Value.Date;
+                // End is exclusive: an event ending at midnight doesn't mark the next day.
+                var last = end is { } e && e > start ? e.AddTicks(-1).Date : first;
+                var color = AgendaItem.ParseColor(info.CalendarColor);
+
+                for (var d = first < month ? month : first; d <= last && d < next; d = d.AddDays(1))
+                {
+                    if (!_dayColors.TryGetValue(d, out var colors)) _dayColors[d] = colors = [];
+                    if (colors.Count < 10 && !colors.Contains(color)) colors.Add(color); // CalendarView shows at most 10
+                }
+            }
+            _loadedMonths.Add(month);
+            UpdateRealizedDayItems();
+        }
+        catch
+        {
+            // The agenda reports errors; this month is retried the next time it's shown.
+        }
+        finally
+        {
+            if (generation == _densityGeneration) _loadingMonths.Remove(month);
+        }
+    }
+
+    /// <summary>Marks every month stale and reloads the visible ones, keeping current dots until then.</summary>
+    private void ReloadDensity()
+    {
+        _densityGeneration++;
+        _loadedMonths.Clear();
+        _loadingMonths.Clear();
+        UpdateRealizedDayItems();
+    }
+
+    private void ClearDensity()
+    {
+        _dayColors.Clear();
+        ReloadDensity();
+    }
+
+    // CalendarViewDayItemChanging only fires as cells scroll into view, so push updates to visible cells.
+    private void UpdateRealizedDayItems()
+    {
+        foreach (var item in FindDescendants<CalendarViewDayItem>(MonthView)) ApplyDensity(item);
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var d in FindDescendants<T>(child)) yield return d;
+        }
+    }
+
     // ------------------------------------------------------------------ UI helpers
 
     private void SetView(View view)
@@ -323,9 +417,14 @@ public sealed partial class FlyoutWindow : Window
         await RefreshAsync();
     }
 
+    private void MonthView_DayItemChanging(CalendarView sender, CalendarViewDayItemChangingEventArgs args)
+    {
+        if (args.Item is { } item) ApplyDensity(item);
+    }
+
     private void Today_Click(object sender, RoutedEventArgs e) => SelectDay(DateTime.Today);
 
-    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAsync();
+    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAllAsync();
 
     private void OpenWeb_Click(object sender, RoutedEventArgs e)
     {

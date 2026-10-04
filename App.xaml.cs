@@ -64,7 +64,7 @@ public partial class App : Application
         switch ((MenuId)id)
         {
             case MenuId.Refresh:
-                await _window!.RefreshAsync();
+                await _window!.RefreshAllAsync();
                 break;
             case MenuId.OpenWeb:
                 Process.Start(new ProcessStartInfo("https://calendar.google.com/") { UseShellExecute = true });
