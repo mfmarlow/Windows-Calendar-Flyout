@@ -44,24 +44,9 @@ You need the **.NET 10 SDK** (`winget install Microsoft.DotNet.SDK.10`). Visual 
 if you use it, install the **WinUI application development** workload and open `CalendarFlyout.csproj`.
 
 ```powershell
-cd CalendarFlyout
+git clone https://github.com/mfmarlow/Windows-Calendar-Flyout.git
+cd Windows-Calendar-Flyout
 dotnet run
-```
-
-The first restore pulls the newest compatible Windows App SDK and Google packages
-(the `.csproj` uses floating versions). Once it builds, pin the exact versions in the `.csproj`.
-
-### Building from WSL
-
-If the repo lives in WSL, use `./win.sh`. It copies the source to
-`%LOCALAPPDATA%\CalendarFlyout-build` and runs the Windows `dotnet.exe` there, because Windows build
-tools can't handle `\\wsl.localhost` paths:
-
-```bash
-./win.sh build     # Debug build
-./win.sh run       # build and launch (stops a running copy first)
-./win.sh publish   # Release build to %LOCALAPPDATA%\Programs\CalendarFlyout
-./win.sh stop      # kill a running copy
 ```
 
 To produce a folder you can keep somewhere permanent (needed for "Start with Windows", which
@@ -76,6 +61,19 @@ Then right-click the tray icon → **Start with Windows**. At login it starts si
 
 > **Tip:** Windows may tuck new tray icons into the overflow (`^`). Drag the icon onto the taskbar,
 > or Settings → Personalization → Taskbar → Other system tray icons → turn CalendarFlyout on.
+
+### Building from WSL (optional)
+
+If you keep the repo in WSL, use `./win.sh` instead. It still needs the .NET 10 SDK installed on
+Windows. Windows build tools can't handle `\\wsl.localhost` paths, so the script copies the source to
+`%LOCALAPPDATA%\CalendarFlyout-build` and runs the Windows `dotnet.exe` there:
+
+```bash
+./win.sh build     # Debug build
+./win.sh run       # build and launch (stops a running copy first)
+./win.sh publish   # Release build to %LOCALAPPDATA%\Programs\CalendarFlyout
+./win.sh stop      # close a running copy
+```
 
 ## 3. Using it
 
