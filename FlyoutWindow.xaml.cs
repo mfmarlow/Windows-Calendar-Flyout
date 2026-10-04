@@ -6,6 +6,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
@@ -23,9 +24,13 @@ public sealed partial class FlyoutWindow : Window
     private const int MarginDip = 12;
 
     private enum View { Setup, SignIn, Agenda }
+    private enum AgendaMode { Day, Week }
+    private const int WeekDays = 7;
 
     private readonly GoogleCalendarService _calendar = new();
     private readonly ObservableCollection<AgendaItem> _items = [];
+    private readonly CollectionViewSource _weekSource = new() { IsSourceGrouped = true };
+    private AgendaMode _mode = AgendaMode.Day;
     private readonly DispatcherQueueTimer _timer;
 
     private DateTime _selectedDay = DateTime.Today;
@@ -186,7 +191,7 @@ public sealed partial class FlyoutWindow : Window
     public async Task SignOutAsync()
     {
         await _calendar.SignOutAsync();
-        _items.Clear();
+        ClearAgenda();
         ClearDensity();
         TooltipChanged?.Invoke("Calendar");
         SetView(_calendar.HasClientSecret ? View.SignIn : View.Setup);
@@ -206,11 +211,20 @@ public sealed partial class FlyoutWindow : Window
         if (!_calendar.IsSignedIn || _refreshing) return;
         _refreshing = true;
         Progress.Visibility = Visibility.Visible;
-        var day = _selectedDay;
+        var mode = _mode;
+        var day = mode == AgendaMode.Week ? DateTime.Today : _selectedDay;
         try
         {
-            var events = await _calendar.GetDayAsync(day);
-            if (day == _selectedDay) ShowItems(day, events);
+            if (mode == AgendaMode.Day)
+            {
+                var events = await _calendar.GetDayAsync(day);
+                if (_mode == mode && day == _selectedDay) ShowDay(day, events);
+            }
+            else
+            {
+                var events = await _calendar.GetRangeAsync(day, day.AddDays(WeekDays));
+                if (_mode == mode) ShowWeek(day, events);
+            }
         }
         catch (TokenResponseException)
         {
@@ -237,26 +251,51 @@ public sealed partial class FlyoutWindow : Window
             Progress.Visibility = Visibility.Collapsed;
         }
 
-        // The selected day changed while we were loading: load the new one now.
-        if (day != _selectedDay) await RefreshAsync();
+        // The selected day or mode changed while we were loading: load the new one now.
+        if (mode != _mode || (mode == AgendaMode.Day && day != _selectedDay)) await RefreshAsync();
         else if (!AppWindow.IsVisible) TrimMemory(); // background refresh: don't hold on to what it allocated
     }
 
-    private void ShowItems(DateTime day, List<CalendarEventInfo> events)
+    private void ShowDay(DateTime day, List<CalendarEventInfo> events)
     {
-        var items = events
-            .Select(e => AgendaItem.FromEvent(e, day))
-            .OrderByDescending(i => i.IsAllDay)
-            .ThenBy(i => i.Start)
-            .ToList();
-
+        var items = AgendaItem.ForDay(events, day);
         _items.Clear();
         foreach (var item in items) _items.Add(item);
-        EmptyText.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ErrorBar.IsOpen = false;
-        _lastRefresh = DateTime.Now;
+        AgendaList.ItemsSource = _items;
+        ShowLoaded(items.Count == 0, "No events");
 
         if (day == DateTime.Today) UpdateTooltip(items);
+    }
+
+    /// <summary>Upcoming events for the next 7 days, under a heading per day; empty days are skipped.</summary>
+    private void ShowWeek(DateTime from, List<CalendarEventInfo> events)
+    {
+        var now = DateTimeOffset.Now;
+        var groups = Enumerable.Range(0, WeekDays)
+            .Select(i => from.AddDays(i))
+            .Select(d => new AgendaGroup(DayLabel(d), AgendaItem.ForDay(events, d).Where(i => i.End is null || i.End > now)))
+            .Where(g => g.Count > 0)
+            .ToList();
+        _weekSource.Source = groups;
+        AgendaList.ItemsSource = _weekSource.View;
+        ShowLoaded(groups.Count == 0, "Nothing in the next 7 days");
+
+        UpdateTooltip(AgendaItem.ForDay(events, DateTime.Today));
+    }
+
+    private void ShowLoaded(bool empty, string emptyText)
+    {
+        EmptyText.Text = emptyText;
+        EmptyText.Visibility = empty ? Visibility.Visible : Visibility.Collapsed;
+        ErrorBar.IsOpen = false;
+        _lastRefresh = DateTime.Now;
+    }
+
+    private void ClearAgenda()
+    {
+        _items.Clear();
+        _weekSource.Source = null;
+        EmptyText.Visibility = Visibility.Collapsed;
     }
 
     private void UpdateTooltip(List<AgendaItem> todays)
@@ -381,15 +420,16 @@ public sealed partial class FlyoutWindow : Window
     private void UpdateDateHeader()
     {
         DateHeader.Text = DateTime.Now.ToString("dddd, MMMM d");
-        var diff = (_selectedDay - DateTime.Today).Days;
-        AgendaHeader.Text = diff switch
-        {
-            0 => "Today",
-            1 => "Tomorrow",
-            -1 => "Yesterday",
-            _ => _selectedDay.ToString("dddd, MMMM d"),
-        };
+        AgendaHeader.Text = _mode == AgendaMode.Week ? "Next 7 days" : DayLabel(_selectedDay);
     }
+
+    private static string DayLabel(DateTime day) => (day.Date - DateTime.Today).Days switch
+    {
+        0 => "Today",
+        1 => "Tomorrow",
+        -1 => "Yesterday",
+        _ => day.ToString("dddd, MMMM d"),
+    };
 
     private void SelectDay(DateTime day)
     {
@@ -412,10 +452,26 @@ public sealed partial class FlyoutWindow : Window
             return;
         }
         var day = args.AddedDates[0].Date;
+        if (_mode == AgendaMode.Week)
+        {
+            // Picking a date means "show me that day".
+            _selectedDay = day;
+            ModeBar.SelectedItem = DayModeItem; // ModeBar_SelectionChanged reloads
+            return;
+        }
         if (day == _selectedDay && _items.Count > 0) return;
         _selectedDay = day;
-        _items.Clear();
-        EmptyText.Visibility = Visibility.Collapsed;
+        ClearAgenda();
+        UpdateDateHeader();
+        await RefreshAsync();
+    }
+
+    private async void ModeBar_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        var mode = sender.SelectedItem == WeekModeItem ? AgendaMode.Week : AgendaMode.Day;
+        if (mode == _mode) return;
+        _mode = mode;
+        ClearAgenda();
         UpdateDateHeader();
         await RefreshAsync();
     }

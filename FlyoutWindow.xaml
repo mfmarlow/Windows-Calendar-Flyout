@@ -53,9 +53,18 @@
                       CalendarViewDayItemChanging="MonthView_DayItemChanging" />
 
         <!-- Agenda heading -->
-        <Grid Grid.Row="2" Padding="20,8,20,4">
-            <TextBlock x:Name="AgendaHeader" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Today" />
-            <ProgressBar x:Name="Progress" IsIndeterminate="True" VerticalAlignment="Bottom"
+        <Grid Grid.Row="2" Padding="20,4,12,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="AgendaHeader" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Today"
+                       VerticalAlignment="Center" />
+            <SelectorBar x:Name="ModeBar" Grid.Column="1" SelectionChanged="ModeBar_SelectionChanged">
+                <SelectorBarItem x:Name="DayModeItem" Text="Day" IsSelected="True" />
+                <SelectorBarItem x:Name="WeekModeItem" Text="Week" />
+            </SelectorBar>
+            <ProgressBar x:Name="Progress" Grid.ColumnSpan="2" IsIndeterminate="True" VerticalAlignment="Bottom"
                          Margin="0,0,0,-4" Visibility="Collapsed" />
         </Grid>
 
@@ -71,6 +80,16 @@
                         <Setter Property="Padding" Value="12,0" />
                     </Style>
                 </ListView.ItemContainerStyle>
+                <!-- Day headings in the "Week" list (ignored when the list isn't grouped). -->
+                <ListView.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate x:DataType="local:AgendaGroup">
+                                <TextBlock Text="{x:Bind Header}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                    </GroupStyle>
+                </ListView.GroupStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="local:AgendaItem">
                         <Grid Padding="0,8" ColumnSpacing="12" Opacity="{x:Bind ItemOpacity}">

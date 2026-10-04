@@ -6,6 +6,12 @@ using Microsoft.UI.Xaml.Media;
 
 namespace CalendarFlyout;
 
+/// <summary>A day heading and its events, for the grouped "Week" list.</summary>
+public sealed class AgendaGroup(string header, IEnumerable<AgendaItem> items) : List<AgendaItem>(items)
+{
+    public string Header { get; } = header;
+}
+
 /// <summary>One row in the agenda list. Create on the UI thread (it holds a brush).</summary>
 public sealed class AgendaItem
 {
@@ -53,6 +59,22 @@ public sealed class AgendaItem
             MeetLink = meet.Length > 0 ? meet : null,
             HtmlLink = e.HtmlLink,
         };
+    }
+
+    /// <summary>The events that overlap a local day, as rows: all-day first, then by start time.</summary>
+    public static List<AgendaItem> ForDay(IEnumerable<CalendarEventInfo> events, DateTime day)
+    {
+        var next = day.Date.AddDays(1);
+        return events
+            .Where(e =>
+            {
+                var (_, start, end) = GetTimes(e.Event);
+                return start is { } s && s < next && (end ?? s) > day.Date;
+            })
+            .Select(e => FromEvent(e, day))
+            .OrderByDescending(i => i.IsAllDay)
+            .ThenBy(i => i.Start)
+            .ToList();
     }
 
     /// <summary>Local start/end of an event. For all-day events the end date is exclusive.</summary>

@@ -81,6 +81,7 @@ Windows. Windows build tools can't handle `\\wsl.localhost` paths, so the script
 |---|---|
 | Click tray icon | Open / close the flyout (bottom-right, follows taskbar position and DPI) |
 | Click a day | Load that day's events |
+| **Week** | Upcoming events for the next 7 days, grouped by day (click a date to go back to Day) |
 | Click the date header | Jump back to today |
 | Click an event | Open it in Google Calendar |
 | **Join** | Open the Meet/Zoom link |
