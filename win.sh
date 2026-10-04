@@ -43,7 +43,10 @@ case "${1:-build}" in
         dn build
         exe="$(find "$MIRROR/bin" -name CalendarFlyout.exe -path '*Debug*' | head -1)"
         echo "Launching $exe"
-        (cd "$(dirname "$exe")" && ./CalendarFlyout.exe >/dev/null 2>&1 &)
+        # Launch through Explorer. Anything started from here (directly, or via cmd's `start`)
+        # inherits WSL's interop pipes, and the script then waits until the app exits.
+        # explorer.exe always exits with status 1, so ignore it.
+        (cd "$MIRROR" && explorer.exe "$(wslpath -w "$exe")" </dev/null >/dev/null 2>&1) || true
         ;;
     publish)
         stop
