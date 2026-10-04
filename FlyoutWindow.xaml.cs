@@ -112,13 +112,30 @@ public sealed partial class FlyoutWindow : Window
         var work = display.WorkArea;
         var outer = display.OuterBounds;
 
-        int margin = (int)(MarginDip * scale);
-        int width = (int)(WidthDip * scale);
-        int height = Math.Min((int)(HeightDip * scale), work.Height - 2 * margin);
-
         // Sit in the corner next to the taskbar, wherever it is docked.
         bool taskbarLeft = work.X > outer.X;
         bool taskbarTop = work.Y > outer.Y;
+
+        // An auto-hide taskbar isn't excluded from the work area, but it's showing whenever you
+        // click the tray icon. Keep clear of it as if it were always there.
+        if (GetTaskbar() is { AutoHide: true } taskbar && Overlaps(taskbar.Rect, outer))
+        {
+            var r = taskbar.Rect;
+            int right = work.X + work.Width, bottom = work.Y + work.Height;
+            switch (taskbar.Edge)
+            {
+                case TaskbarEdge.Bottom: bottom = Math.Min(bottom, outer.Y + outer.Height - (r.Bottom - r.Top)); break;
+                case TaskbarEdge.Top: work.Y = Math.Max(work.Y, outer.Y + (r.Bottom - r.Top)); taskbarTop = true; break;
+                case TaskbarEdge.Right: right = Math.Min(right, outer.X + outer.Width - (r.Right - r.Left)); break;
+                case TaskbarEdge.Left: work.X = Math.Max(work.X, outer.X + (r.Right - r.Left)); taskbarLeft = true; break;
+            }
+            work.Width = right - work.X;
+            work.Height = bottom - work.Y;
+        }
+
+        int margin = (int)(MarginDip * scale);
+        int width = (int)(WidthDip * scale);
+        int height = Math.Min((int)(HeightDip * scale), work.Height - 2 * margin);
         int x = taskbarLeft ? work.X + margin : work.X + work.Width - width - margin;
         int y = taskbarTop ? work.Y + margin : work.Y + work.Height - height - margin;
 
@@ -132,6 +149,9 @@ public sealed partial class FlyoutWindow : Window
         if (_calendar.IsSignedIn && DateTime.Now - _lastRefresh > TimeSpan.FromMinutes(1))
             _ = RefreshAsync();
     }
+
+    private static bool Overlaps(RECT r, RectInt32 area) =>
+        r.Left < area.X + area.Width && r.Right > area.X && r.Top < area.Y + area.Height && r.Bottom > area.Y;
 
     public void HideFlyout()
     {

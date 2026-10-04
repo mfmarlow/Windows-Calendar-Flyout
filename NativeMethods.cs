@@ -115,6 +115,35 @@ internal static class NativeMethods
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "Shell_NotifyIconW")]
     public static extern bool Shell_NotifyIcon(uint message, ref NOTIFYICONDATA data);
 
+    // ---- taskbar ----
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct APPBARDATA
+    {
+        public int cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage;
+        public uint uEdge;
+        public RECT rc;
+        public IntPtr lParam;
+    }
+
+    public enum TaskbarEdge : uint { Left = 0, Top = 1, Right = 2, Bottom = 3 }
+    private const uint ABM_GETSTATE = 4, ABM_GETTASKBARPOS = 5, ABS_AUTOHIDE = 1;
+
+    [DllImport("shell32.dll")] private static extern IntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
+
+    /// <summary>The primary taskbar's docked position (physical pixels), edge, and whether it auto-hides.</summary>
+    public static (RECT Rect, TaskbarEdge Edge, bool AutoHide)? GetTaskbar()
+    {
+        var data = new APPBARDATA { cbSize = Marshal.SizeOf<APPBARDATA>() };
+        bool autoHide = ((long)SHAppBarMessage(ABM_GETSTATE, ref data) & ABS_AUTOHIDE) != 0;
+        if (SHAppBarMessage(ABM_GETTASKBARPOS, ref data) == IntPtr.Zero) return null;
+        return (data.rc, (TaskbarEdge)data.uEdge, autoHide);
+    }
+
     // ---- monitors / DPI ----
     public const uint MONITOR_DEFAULTTONEAREST = 2;
     [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
