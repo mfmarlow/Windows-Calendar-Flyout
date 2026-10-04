@@ -232,9 +232,13 @@ public sealed partial class FlyoutWindow : Window
 
     // ------------------------------------------------------------------ data
 
-    /// <summary>Reloads the agenda and the month-grid dots.</summary>
-    public async Task RefreshAllAsync()
+    /// <summary>
+    /// Reloads the agenda and the month-grid dots. A refresh you ask for also re-fetches the
+    /// calendar list, so colour or visibility changes in Google Calendar show up straight away.
+    /// </summary>
+    public async Task RefreshAllAsync(bool userRequested = false)
     {
+        if (userRequested) _calendar.ForgetCalendars();
         ReloadDensity();
         await RefreshAsync();
     }
@@ -516,7 +520,7 @@ public sealed partial class FlyoutWindow : Window
 
     private void Today_Click(object sender, RoutedEventArgs e) => SelectDay(DateTime.Today);
 
-    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAllAsync();
+    private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshAllAsync(userRequested: true);
 
     private void OpenWeb_Click(object sender, RoutedEventArgs e)
     {

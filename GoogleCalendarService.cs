@@ -57,6 +57,9 @@ public sealed class GoogleCalendarService
         _calendars = null;
     }
 
+    /// <summary>Re-fetch the calendar list (names, colours, which are checked) on the next query.</summary>
+    public void ForgetCalendars() => _calendars = null;
+
     /// <summary>All events overlapping the given local day, across your visible calendars.</summary>
     public Task<List<CalendarEventInfo>> GetDayAsync(DateTime day, CancellationToken ct = default) =>
         GetRangeAsync(day.Date, day.Date.AddDays(1), ct);
