@@ -12,6 +12,7 @@ using Windows.Graphics;
 using Windows.System;
 using static CalendarFlyout.NativeMethods;
 using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
+using DispatcherQueuePriority = Microsoft.UI.Dispatching.DispatcherQueuePriority;
 
 namespace CalendarFlyout;
 
@@ -132,6 +133,7 @@ public sealed partial class FlyoutWindow : Window
         if (!AppWindow.IsVisible) return;
         _lastHidden = DateTime.Now;
         AppWindow.Hide();
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, TrimMemory);
     }
 
     public void Shutdown()
@@ -237,6 +239,7 @@ public sealed partial class FlyoutWindow : Window
 
         // The selected day changed while we were loading: load the new one now.
         if (day != _selectedDay) await RefreshAsync();
+        else if (!AppWindow.IsVisible) TrimMemory(); // background refresh: don't hold on to what it allocated
     }
 
     private void ShowItems(DateTime day, List<CalendarEventInfo> events)
