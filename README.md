@@ -82,7 +82,8 @@ Windows. Windows build tools can't handle `\\wsl.localhost` paths, so the script
 | Click tray icon | Open / close the flyout (bottom-right, follows taskbar position and DPI) |
 | Click a day | Load that day's events |
 | **Week** | Upcoming events for the next 7 days, grouped by day (click a date to go back to Day) |
-| Click the date header | Jump back to today |
+| Click the date header or the **Go to today** button | Jump back to today |
+| Drag the top edge | Make the flyout taller (remembered; the default size is the minimum) |
 | Click an event | Open it in Google Calendar |
 | **Join** | Open the Meet/Zoom link |
 | Esc / click elsewhere | Close |
@@ -102,6 +103,7 @@ Days with events get a small marker on the month grid, one per calendar (in that
 | `FlyoutWindow.xaml(.cs)` | The popup: acrylic, borderless, positioned by the clock, hides on focus loss |
 | `GoogleCalendarService.cs` | OAuth (loopback browser flow) + Calendar API queries |
 | `AgendaItem.cs` | Turns an API event into a list row (times, colours, Join link) |
+| `Settings.cs` | Saved preferences (`settings.json`) |
 | `StartupManager.cs` | HKCU `Run` key for Start with Windows |
 | `NativeMethods.cs` | Win32 P/Invoke |
 

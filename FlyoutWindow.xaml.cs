@@ -20,7 +20,7 @@ namespace CalendarFlyout;
 public sealed partial class FlyoutWindow : Window
 {
     private const int WidthDip = 360;
-    private const int HeightDip = 660;
+    private const int HeightDip = 660; // default and minimum; you can drag the top edge taller
     private const int MarginDip = 12;
 
     private enum View { Setup, SignIn, Agenda }
@@ -32,6 +32,9 @@ public sealed partial class FlyoutWindow : Window
     private readonly CollectionViewSource _weekSource = new() { IsSourceGrouped = true };
     private AgendaMode _mode = AgendaMode.Day;
     private readonly DispatcherQueueTimer _timer;
+    private readonly OverlappedPresenter _presenter;
+    private readonly Settings _settings = Settings.Load();
+    private double _scale = 1.0;
 
     private DateTime _selectedDay = DateTime.Today;
     private DateTime _today = DateTime.Today;
@@ -58,13 +61,17 @@ public sealed partial class FlyoutWindow : Window
 
         // Flyout chrome: acrylic like the system flyouts, thin border + rounded corners, no title bar.
         SystemBackdrop = new DesktopAcrylicBackdrop();
-        var presenter = OverlappedPresenter.Create();
-        presenter.IsResizable = false;
+        var presenter = _presenter = OverlappedPresenter.Create();
+        presenter.IsResizable = true; // height only: ShowFlyout pins the width with min = max
         presenter.IsMaximizable = false;
         presenter.IsMinimizable = false;
         presenter.IsAlwaysOnTop = true;
         presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
         AppWindow.SetPresenter(presenter);
+        AppWindow.Changed += (_, e) =>
+        {
+            if (e.DidSizeChange && AppWindow.IsVisible) _settings.FlyoutHeight = AppWindow.Size.Height / _scale;
+        };
         AppWindow.IsShownInSwitchers = false; // no taskbar button, not in Alt+Tab
         AppWindow.Title = "Calendar";
 
@@ -107,7 +114,7 @@ public sealed partial class FlyoutWindow : Window
     public void ShowFlyout()
     {
         GetCursorPos(out var cursor);
-        double scale = ScaleForPoint(cursor);
+        double scale = _scale = ScaleForPoint(cursor);
         var display = DisplayArea.GetFromPoint(new PointInt32(cursor.X, cursor.Y), DisplayAreaFallback.Primary);
         var work = display.WorkArea;
         var outer = display.OuterBounds;
@@ -135,7 +142,12 @@ public sealed partial class FlyoutWindow : Window
 
         int margin = (int)(MarginDip * scale);
         int width = (int)(WidthDip * scale);
-        int height = Math.Min((int)(HeightDip * scale), work.Height - 2 * margin);
+        int maxHeight = work.Height - 2 * margin;
+        int minHeight = Math.Min((int)(HeightDip * scale), maxHeight);
+        int height = Math.Clamp((int)((_settings.FlyoutHeight ?? HeightDip) * scale), minHeight, maxHeight);
+        _presenter.PreferredMinimumWidth = _presenter.PreferredMaximumWidth = width;
+        _presenter.PreferredMinimumHeight = minHeight;
+        _presenter.PreferredMaximumHeight = maxHeight;
         int x = taskbarLeft ? work.X + margin : work.X + work.Width - width - margin;
         int y = taskbarTop ? work.Y + margin : work.Y + work.Height - height - margin;
 
@@ -158,6 +170,7 @@ public sealed partial class FlyoutWindow : Window
         if (!AppWindow.IsVisible) return;
         _lastHidden = DateTime.Now;
         AppWindow.Hide();
+        _settings.Save();
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, TrimMemory);
     }
 

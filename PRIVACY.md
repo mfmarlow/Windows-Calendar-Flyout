@@ -24,6 +24,7 @@ Everything stays in `%LOCALAPPDATA%\CalendarFlyout` on your own PC:
 
 - Your Google sign-in token, so you don't have to sign in every time.
 - `client_secret.json`, the OAuth client configuration you provide.
+- `settings.json`, your preferences (currently just the flyout's height, if you've resized it).
 - `error.log`, written only if the app crashes. It contains technical error details.
 
 If you turn on **Start with Windows**, the app also adds an entry under
