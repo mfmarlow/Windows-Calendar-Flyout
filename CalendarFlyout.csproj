@@ -9,7 +9,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\tray-black.ico</ApplicationIcon>
 
-    <!-- Your PC is x64. Change to win-arm64 / ARM64 on an ARM machine. -->
+    <!-- x64 build. On an ARM PC, change these to ARM64 / win-arm64. -->
     <Platforms>x64</Platforms>
     <Platform>x64</Platform>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
