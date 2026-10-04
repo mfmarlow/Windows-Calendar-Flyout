@@ -26,11 +26,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Floating versions pick the newest compatible release on first restore.
-         Pin them (see obj/project.assets.json) once it builds. -->
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.*" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
-    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.*" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.75.0.4206" />
   </ItemGroup>
 
   <ItemGroup>

@@ -11,6 +11,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 using Windows.System;
 using static CalendarFlyout.NativeMethods;
+using DispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
 namespace CalendarFlyout;
 
