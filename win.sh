@@ -6,7 +6,7 @@
 #
 #   ./win.sh build              Debug build
 #   ./win.sh run                Build and launch (stops a running copy first)
-#   ./win.sh publish            Release build to %LOCALAPPDATA%\Programs\CalendarFlyout
+#   ./win.sh publish            Release build to %LOCALAPPDATA%\Programs\CalendarFlyout, then launch it
 #   ./win.sh stop               Kill a running CalendarFlyout.exe
 set -euo pipefail
 
@@ -28,6 +28,14 @@ stop() {
     taskkill.exe /IM CalendarFlyout.exe /F >/dev/null 2>&1 || true
 }
 
+# Launch through Explorer. Anything started from here (directly, or via cmd's `start`)
+# inherits WSL's interop pipes, and the script then waits until the app exits.
+# explorer.exe always exits with status 1, so ignore it.
+launch() {
+    echo "Launching $1"
+    (cd "$MIRROR" && explorer.exe "$1" </dev/null >/dev/null 2>&1) || true
+}
+
 dn() {
     (cd "$MIRROR" && dotnet.exe "$@")
 }
@@ -42,17 +50,14 @@ case "${1:-build}" in
         sync
         dn build
         exe="$(find "$MIRROR/bin" -name CalendarFlyout.exe -path '*Debug*' | head -1)"
-        echo "Launching $exe"
-        # Launch through Explorer. Anything started from here (directly, or via cmd's `start`)
-        # inherits WSL's interop pipes, and the script then waits until the app exits.
-        # explorer.exe always exits with status 1, so ignore it.
-        (cd "$MIRROR" && explorer.exe "$(wslpath -w "$exe")" </dev/null >/dev/null 2>&1) || true
+        launch "$(wslpath -w "$exe")"
         ;;
     publish)
         stop
         sync
         dn publish -c Release -o "$PUBLISH_DIR"
         echo "Published to $PUBLISH_DIR"
+        launch "$PUBLISH_DIR\\CalendarFlyout.exe"
         ;;
     stop)
         stop

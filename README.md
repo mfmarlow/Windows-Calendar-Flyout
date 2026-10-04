@@ -71,7 +71,7 @@ Windows. Windows build tools can't handle `\\wsl.localhost` paths, so the script
 ```bash
 ./win.sh build     # Debug build
 ./win.sh run       # build and launch (stops a running copy first)
-./win.sh publish   # Release build to %LOCALAPPDATA%\Programs\CalendarFlyout
+./win.sh publish   # Release build to %LOCALAPPDATA%\Programs\CalendarFlyout, then launch it
 ./win.sh stop      # close a running copy
 ```
 
